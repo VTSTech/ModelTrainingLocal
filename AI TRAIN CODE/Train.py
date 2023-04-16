@@ -20,7 +20,7 @@ json_file = json.load(open("Data.json"))
 if(json_file[0]["huggingface_access_token"] != ""):
     login(json_file[0]["huggingface_access_token"]) # non-blocking login
 
-data = load_dataset("json", data_files=json_file[0]["data"])
+data = load_dataset("json", data_files=json_file[0]["data"]) if json_file[0]['PreProcessedData?'] == False else load_dataset("json", json_file[0]["ProccessedData_outDIR"])
 valid_data = load_dataset("json", data_files=json_file[0]["eval_data"])
 print("data loaded")
 model = AutoModelForCausalLM.from_pretrained(json_file[0]["model"])
@@ -37,49 +37,64 @@ LEARNING_RATE = json_file[0]["LEARNING_RATE"]  # Should be between 2e-5 <-> 5e-5
 CUTOFF_LEN = json_file[0]["CUTOFF_LEN"]  # 400 is a decent length.
 MAX_STEP = json_file[0]["MAX_STEP"] # Easier to use than Epochs.
 
-def generate_prompt(data_point):
-    if data_point["instruction"]:
-        return f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
+if not json_file[0]['PreProcessedData?']:
+    def generate_prompt(data_point):
+        if data_point["instruction"]:
+            return f"""Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.
 
-### Instruction:
-{data_point["instruction"]}
+    ### Instruction:
+    {data_point["instruction"]}
 
-### Input:
-{data_point["input"]}
+    ### Input:
+    {data_point["input"]}
 
-### Response:
-{data_point["output"]}"""
-    else:
-        return f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.
+    ### Response:
+    {data_point["output"]}"""
+        else:
+            return f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
-### Instruction:
-{data_point["instruction"]}
+    ### Instruction:
+    {data_point["instruction"]}
 
-### Response:
-{data_point["output"]}"""
+    ### Response:
+    {data_point["output"]}"""
 
-valid_data = valid_data.map(lambda data_point: {"prompt": tokenizer(generate_prompt(data_point))})
-data = data.map(lambda data_point: {"prompt": tokenizer(generate_prompt(data_point))})
+    #valid_data = valid_data.map(lambda data_point: {"prompt": tokenizer(generate_prompt(data_point))})
+    #data = data.map(lambda data_point: {"prompt": tokenizer(generate_prompt(data_point))})
 
-print("data conversion step 1 done")
-tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
-data = data.shuffle().map(
-    lambda data_point: tokenizer(
-        generate_prompt(data_point),
-        truncation=True,
-        max_length=CUTOFF_LEN,
-        padding="max_length",
+    print("data conversion step 1 done")
+    tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
+    data = data.shuffle().map(
+        lambda data_point: tokenizer(
+            generate_prompt(data_point),
+            truncation=True,
+            max_length=CUTOFF_LEN,
+            padding="max_length",
+        )
     )
-)
 
-valid_data = valid_data.shuffle().map(
-    lambda data_point: tokenizer(
-        generate_prompt(data_point),
-        truncation=True,
-        max_length=CUTOFF_LEN,
-        padding="max_length",
+    valid_data = valid_data.shuffle().map(
+        lambda data_point: tokenizer(
+            generate_prompt(data_point),
+            truncation=True,
+            max_length=CUTOFF_LEN,
+            padding="max_length",
+        )
     )
-)
+    
+
+    print("Saving data, this step might take a while, dont worry")
+    json_data = []
+    
+    for i in range(len(data["train"])):
+        json_data.append(data['train'][i])
+        if(i % 1000 == 0):
+            print(i)
+            
+    import json
+    with open(json_file[0]["ProccessedData_outDIR"], 'w') as f:
+        json.dump(json_data, f)
+    
 
 print("data conversion step 2 done \n ")
 print("Training starting!")
@@ -113,10 +128,10 @@ trainer = transformers.Trainer(
     eval_dataset=valid_data["train"],
     data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
 )
+print("training begun.")
 
 
-
-trainer.train(resume_from_checkpoint=False)
+trainer.train(resume_from_checkpoint=json_file[0]["Load_Checkpoint"])
 
 trainer.save_model(json_file[0]["out_dir"])
 tokenizer.save_pretrained(json_file[0]["out_dir"])
