@@ -1,29 +1,25 @@
 [
-
     {
         "huggingface_access_token" : "",
-        "model":"bigscience/bloom-560M",
-        "model_tokenizer" : "bigscience/bloom-560M",
+        
+        "model":"cerebras/Cerebras-GPT-111M",
+        "model_tokenizer" : "cerebras/Cerebras-GPT-111M",
         "data" : "QuickTrain/Alp_vic_unfiltered.json",
         "eval_data" : "QuickTrain/vic_eval_DAT.json",
-        "out_dir" : "QuickTrain/vic_eval_DAT.json",
-
-        "MICRO_BATCH_SIZE" : 0,
+        "out_dir" : "ELIAI_MODELS",
+        "ProccessedData_outDIR" : "PreprocessedData",        
+        "MICRO_BATCH_SIZE" : 4,
         "GRADIENT_ACCUMULATION_STEPS" : 8,
-        "EPOCHS" : 10,
+        "EPOCHS" : 5,
         "LEARNING_RATE" : 3e-5,
         "CUTOFF_LEN" : 400,
-        "MAX_STEP" : 0,
-
-        "CPU_MODE" : false,
-
+        "MAX_STEP" : 100,
+        "CPU_MODE" : true,
+        "PreProcessedData?" : false,
+        "Load_Checkpoint" : false,
         "Extra data, you dont need to touch the following, rather not touch unlees yk what u are doing" : true,
         "eval_steps" : 8,
         "load_best_model_at_end" : false,
-        "save_steps" : 20000
-    
-
+        "save_steps" : 20   
     }
-
-
 ]
